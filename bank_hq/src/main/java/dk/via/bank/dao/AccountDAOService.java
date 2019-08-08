@@ -9,6 +9,7 @@ import dk.via.bank.model.parameters.AccountSpecification;
 import javax.jws.WebService;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -59,15 +60,25 @@ public class AccountDAOService  {
 	@Path("{accountNumber}")
 	@Produces(MediaType.APPLICATION_JSON)
     public Account readAccount(@PathParam("accountNumber") String accountString) {
-		AccountNumber accountNumber = AccountNumber.fromString(accountString);
+		return getAccount(AccountNumber.fromString(accountString));
+	}
+
+	private Account getAccount(AccountNumber accountNumber) {
 		return helper.mapSingle(new AccountMapper(), "SELECT * FROM Account WHERE reg_number = ? AND account_number = ? AND active",
 				accountNumber.getRegNumber(), accountNumber.getAccountNumber());
 	}
 
-
-    public void updateAccount(Account account) {
-		helper.executeUpdate("UPDATE ACCOUNT SET balance = ?, currency = ? WHERE reg_number = ? AND account_number = ? AND active", 
-				account.getBalance().getAmount(), account.getSettledCurrency(), account.getAccountNumber().getRegNumber(), account.getAccountNumber().getAccountNumber());
+	@PUT
+	@Path("{accountNumber}")
+    public Response updateAccount(@PathParam("accountNumber") String accountString, Account account) {
+		AccountNumber accountNumber = AccountNumber.fromString(accountString);
+		if (getAccount(accountNumber) == null) {
+			return Response.status(403).build();
+		} else {
+			helper.executeUpdate("UPDATE ACCOUNT SET balance = ?, currency = ? WHERE reg_number = ? AND account_number = ? AND active",
+					account.getBalance().getAmount(), account.getSettledCurrency(), accountNumber.getRegNumber(), accountNumber.getAccountNumber());
+			return Response.status(200).build();
+		}
 	}
 
     public void deleteAccount(Account account) {
