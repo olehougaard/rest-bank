@@ -81,8 +81,11 @@ public class AccountDAOService  {
 		}
 	}
 
-    public void deleteAccount(Account account) {
-		helper.executeUpdate("UPDATE ACCOUNT SET active = FALSE WHERE reg_number = ? AND account_number = ?", 
-				account.getAccountNumber().getRegNumber(), account.getAccountNumber().getAccountNumber());
+	@DELETE
+	@Path("{accountNumber}")
+    public void deleteAccount(@PathParam("accountNumber") String accountString) {
+		AccountNumber accountNumber = AccountNumber.fromString(accountString);
+		helper.executeUpdate("UPDATE ACCOUNT SET active = FALSE WHERE reg_number = ? AND account_number = ?",
+				accountNumber.getRegNumber(), accountNumber.getAccountNumber());
 	}
 }
