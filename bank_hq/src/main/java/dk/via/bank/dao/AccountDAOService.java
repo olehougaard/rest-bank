@@ -28,13 +28,12 @@ public class AccountDAOService  {
 
 	@POST
 	@Produces(MediaType.APPLICATION_JSON)
-	public Account createAccount(AccountSpecification specification) {
+	public Account createAccount(@PathParam("cpr") String cpr, AccountSpecification specification) {
 		int regNumber = specification.getRegNumber();
-		String cpr = specification.getCustomerCpr();
 		String currency = specification.getCurrency();
 		final List<Integer> keys = helper.executeUpdateWithGeneratedKeys("INSERT INTO Account(reg_number, customer, currency) VALUES (?, ?, ?)", 
 				regNumber, cpr, currency);
-		return getAccount(new AccountNumber(regNumber, keys.get(0)));
+		return getAccount(new AccountNumber(regNumber, keys.get(0)), cpr);
 	}
 	
 	public static class AccountMapper implements DataMapper<Account>{
@@ -57,27 +56,28 @@ public class AccountDAOService  {
 	@GET
 	@Path("{accountNumber}")
 	@Produces(MediaType.APPLICATION_JSON)
-    public Response readAccount(@PathParam("accountNumber") String accountString) {
-		Account account = getAccount(AccountNumber.fromString(accountString));
+    public Response readAccount(@PathParam("cpr") String cpr, @PathParam("accountNumber") String accountString) {
+		Account account = getAccount(AccountNumber.fromString(accountString), cpr);
 		if (account == null)
 			return Response.status(404).build();
 		else
 			return Response.status(200).entity(account).build();
 	}
 
-	Account getAccount(AccountNumber accountNumber) {
-		return helper.mapSingle(new AccountMapper(), "SELECT * FROM Account WHERE reg_number = ? AND account_number = ? AND active",
-				accountNumber.getRegNumber(), accountNumber.getAccountNumber());
+	Account getAccount(AccountNumber accountNumber, String targetCpr) {
+		return helper.mapSingle(new AccountMapper(),
+				"SELECT * FROM Account WHERE reg_number = ? AND account_number = ? AND customer = ? AND active",
+				accountNumber.getRegNumber(), accountNumber.getAccountNumber(), targetCpr);
 	}
 
 	@PUT
 	@Path("{accountNumber}")
-    public Response updateAccount(@PathParam("accountNumber") String accountString, Account account) {
+    public Response updateAccount(@PathParam("cpr") String cpr, @PathParam("accountNumber") String accountString, Account account) {
 		AccountNumber accountNumber = AccountNumber.fromString(accountString);
 		if (account.getAccountNumber() != null && !account.getAccountNumber().equals(accountNumber)) {
 			return Response.status(409).build();
 		}
-		if (getAccount(accountNumber) == null) return Response.status(403).build();
+		if (getAccount(accountNumber, cpr) == null) return Response.status(403).build();
 		if (!account.getSettledCurrency().equals(account.getBalance().getCurrency())) return Response.status(400).build();
 		helper.executeUpdate("UPDATE ACCOUNT SET balance = ?, currency = ? WHERE reg_number = ? AND account_number = ? AND active",
 				account.getBalance().getAmount(), account.getSettledCurrency(), accountNumber.getRegNumber(), accountNumber.getAccountNumber());
@@ -86,9 +86,10 @@ public class AccountDAOService  {
 
 	@DELETE
 	@Path("{accountNumber}")
-    public void deleteAccount(@PathParam("accountNumber") String accountString) {
+    public void deleteAccount(@PathParam("cpr") String cpr, @PathParam("accountNumber") String accountString) {
 		AccountNumber accountNumber = AccountNumber.fromString(accountString);
-		helper.executeUpdate("UPDATE ACCOUNT SET active = FALSE WHERE reg_number = ? AND account_number = ?",
-				accountNumber.getRegNumber(), accountNumber.getAccountNumber());
+		helper.executeUpdate(
+				"UPDATE ACCOUNT SET active = FALSE WHERE reg_number = ? AND account_number = ? AND customer = ?",
+				accountNumber.getRegNumber(), accountNumber.getAccountNumber(), cpr);
 	}
 }

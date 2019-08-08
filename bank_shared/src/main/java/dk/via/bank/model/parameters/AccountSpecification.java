@@ -2,15 +2,13 @@ package dk.via.bank.model.parameters;
 
 public class AccountSpecification {
     private int regNumber;
-    private String customerCpr;
     private String currency;
 
     public AccountSpecification() {
     }
 
-    public AccountSpecification(int regNumber, String customerCpr, String currency) {
+    public AccountSpecification(int regNumber, String currency) {
         this.regNumber = regNumber;
-        this.customerCpr = customerCpr;
         this.currency = currency;
     }
 
@@ -20,14 +18,6 @@ public class AccountSpecification {
 
     public void setRegNumber(int regNumber) {
         this.regNumber = regNumber;
-    }
-
-    public String getCustomerCpr() {
-        return customerCpr;
-    }
-
-    public void setCustomerCpr(String customerCpr) {
-        this.customerCpr = customerCpr;
     }
 
     public String getCurrency() {

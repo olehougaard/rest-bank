@@ -6,7 +6,6 @@ import dk.via.bank.model.Money;
 import dk.via.bank.model.parameters.TransactionSpecification;
 import dk.via.bank.model.transaction.*;
 
-import javax.jws.WebService;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Response;
 import java.sql.ResultSet;
@@ -22,6 +21,7 @@ public class TransactionDAOService {
 	private DatabaseHelper<AbstractTransaction> helper;
 	private AccountDAOService accounts;
 
+	@SuppressWarnings("unused")
 	public TransactionDAOService() {
 		this(new AccountDAOService(), DatabaseHelper.JDBC_URL, DatabaseHelper.USERNAME, DatabaseHelper.PASSWORD);
 	}
@@ -32,26 +32,38 @@ public class TransactionDAOService {
 	}
 	
 	private class TransactionMapper implements DataMapper<AbstractTransaction> {
+		private String cpr;
+		private AccountNumber accountNumber;
+
+		public TransactionMapper(String cpr, String accountString) {
+			this.cpr = cpr;
+			this.accountNumber = AccountNumber.fromString(accountString);
+		}
+
 		@Override
 		public AbstractTransaction create(ResultSet rs) throws SQLException {
 			Money amount = new Money(rs.getBigDecimal("amount"), rs.getString("currency"));
 			String text = rs.getString("transaction_text");
 			Account primary = readAccount(rs, "primary_reg_number", "primary_account_number");
+			AbstractTransaction transaction = null;
 			switch(rs.getString("transaction_type")) {
 			case DEPOSIT:
-				return new DepositTransaction(amount, primary, text);
+				transaction = new DepositTransaction(amount, primary, text);
+				break;
 			case WITHDRAWAL:
-				return new WithdrawTransaction(amount, primary, text);
+				transaction = new WithdrawTransaction(amount, primary, text);
+				break;
 			case TRANSFER:
 				Account secondaryAccount = readAccount(rs, "secondary_reg_number", "secondary_account_number");
-				return new TransferTransaction(amount, primary, secondaryAccount, text);
+				transaction = new TransferTransaction(amount, primary, secondaryAccount, text);
 			default:
-				return null;
 			}
+			if (transaction != null && !transaction.includes(accountNumber)) return null;
+			return transaction;
 		}
 
 		private Account readAccount(ResultSet rs, String regNumberAttr, String acctNumberAttr) throws SQLException {
-			return accounts.getAccount(new AccountNumber(rs.getInt(regNumberAttr), rs.getInt(acctNumberAttr)));
+			return accounts.getAccount(new AccountNumber(rs.getInt(regNumberAttr), rs.getInt(acctNumberAttr)), cpr);
 		}
 	}
 	
@@ -98,33 +110,33 @@ public class TransactionDAOService {
 
 	@POST
 	@Produces("application/json")
-	public Response createTransaction(@PathParam("accountNumber") String accountString, TransactionSpecification transactionSpec) {
-		Account account = accounts.getAccount(AccountNumber.fromString(accountString));
+	public Response createTransaction(@PathParam("cpr") String cpr, @PathParam("accountNumber") String accountString, TransactionSpecification transactionSpec) {
+		Account account = accounts.getAccount(AccountNumber.fromString(accountString), cpr);
 		if (account == null) return Response.status(404).build();
 		Transaction transaction = transactionSpec.toTransaction(account);
 		transaction.accept(creator);
-		return Response.ok(getTransaction(creator.lastId)).build();
+		return Response.ok(getTransaction(cpr, accountString, creator.lastId)).build();
 	}
 
 	@GET
 	@Path("/{id}")
 	@Produces("application/json")
-	public Response readTransaction(@PathParam("accountNumber") String accountString, @PathParam("id") int transactionId) {
-		AbstractTransaction transaction = getTransaction(transactionId);
+	public Response readTransaction(@PathParam("cpr") String cpr, @PathParam("accountNumber") String accountString, @PathParam("id") int transactionId) {
+		AbstractTransaction transaction = getTransaction(cpr, accountString, transactionId);
 		if (transaction == null) return Response.status(404).build();
 		if (!transaction.includes(AccountNumber.fromString(accountString))) return Response.status(404).build();
 		return Response.status(200).entity(transaction).build();
 	}
 
-	private AbstractTransaction getTransaction(int transactionId) {
-		return helper.mapSingle(new TransactionMapper(), "SELECT * FROM Transaction WHERE transaction_id = ?", transactionId);
+	private AbstractTransaction getTransaction(String cpr, String accountString, int transactionId) {
+		return helper.mapSingle(new TransactionMapper(cpr, accountString), "SELECT * FROM Transaction WHERE transaction_id = ?", transactionId);
 	}
 
 	@GET
 	@Produces("application/json")
-	public List<AbstractTransaction> readTransactionsFor(@PathParam("accountNumber") String accountString) {
+	public List<AbstractTransaction> readTransactionsFor(@PathParam("cpr") String cpr, @PathParam("accountNumber") String accountString) {
 		AccountNumber accountNumber = AccountNumber.fromString(accountString);
-		return helper.map(new TransactionMapper(), 
+		return helper.map(new TransactionMapper(cpr, accountString),
 				"SELECT * FROM Transaction WHERE (primary_reg_number = ? AND primary_account_number = ?) OR (secondary_reg_number = ? AND secondary_account_number = ?)",
 				accountNumber.getRegNumber(), accountNumber.getAccountNumber(),accountNumber.getRegNumber(), accountNumber.getAccountNumber());
 	}
