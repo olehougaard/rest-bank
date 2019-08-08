@@ -3,14 +3,16 @@ package dk.via.bank.model;
 public class Account {
 	private AccountNumber accountNumber;
 	private Money balance;
+	private String customerCpr;
 
-	public Account(AccountNumber accountNumber, String currency) {
-		this(accountNumber, Money.zero(currency));
+	public Account(AccountNumber accountNumber, String currency, String customerCpr) {
+		this(accountNumber, Money.zero(currency), customerCpr);
 	}
 
-	public Account(AccountNumber accountNumber, Money balance) {
+	public Account(AccountNumber accountNumber, Money balance, String customerCpr) {
 		this.accountNumber = accountNumber;
 		this.balance = balance;
+		this.customerCpr = customerCpr;
 	}
 
 	public AccountNumber getAccountNumber() {
@@ -19,6 +21,10 @@ public class Account {
 
 	public Money getBalance() {
 		return balance;
+	}
+
+	public String getCustomerCpr() {
+		return customerCpr;
 	}
 
 	public String getSettledCurrency() {
@@ -38,6 +44,10 @@ public class Account {
 
 	public void setAccountNumber(AccountNumber accountNumber) {
 		this.accountNumber = accountNumber;
+	}
+
+	public void setCustomerCpr(String customerCpr) {
+		this.customerCpr = customerCpr;
 	}
 
 	public void setBalance(Money balance) {

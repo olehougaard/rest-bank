@@ -39,6 +39,17 @@ public class TransactionSpecification {
         return new TransactionSpecification(TRANSFER, amount, text, recipient);
     }
 
+    public static TransactionSpecification from(AbstractTransaction transaction) {
+        if (transaction instanceof DepositTransaction)
+            return deposit(transaction.getAmount(), transaction.getText());
+        else if (transaction instanceof WithdrawTransaction)
+            return withdraw(transaction.getAmount(), transaction.getText());
+        else if (transaction instanceof TransferTransaction)
+            return transfer(transaction.getAmount(), transaction.getText(), ((TransferTransaction) transaction).getRecipient());
+        else
+            return null;
+    }
+
     public AbstractTransaction toTransaction(Account account) {
         switch(type) {
             case DEPOSIT:

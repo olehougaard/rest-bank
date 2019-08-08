@@ -42,7 +42,8 @@ public class AccountDAOService  {
 			AccountNumber accountNumber = new AccountNumber(rs.getInt("reg_number"), rs.getLong("account_number"));
 			BigDecimal balance = rs.getBigDecimal("balance");
 			String currency = rs.getString("currency");
-			return new Account(accountNumber, new Money(balance, currency));
+			String customerCpr = rs.getString("customer");
+			return new Account(accountNumber, new Money(balance, currency), customerCpr);
 		}
 		
 	}
@@ -66,7 +67,7 @@ public class AccountDAOService  {
 
 	Account getAccount(AccountNumber accountNumber, String targetCpr) {
 		return helper.mapSingle(new AccountMapper(),
-				"SELECT * FROM Account WHERE reg_number = ? AND account_number = ? AND customer = ? AND active",
+				"SELECT * FROM Account WHERE reg_number = ? AND account_number = ? AND customer LIKE ? AND active",
 				accountNumber.getRegNumber(), accountNumber.getAccountNumber(), targetCpr);
 	}
 

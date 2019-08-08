@@ -1,6 +1,5 @@
 package dk.via.bank;
 
-import dk.via.bank.dao.CustomerDAO;
 import dk.via.bank.model.Account;
 import dk.via.bank.model.Customer;
 import dk.via.bank.model.Money;
@@ -24,6 +23,8 @@ public class TransferTest {
 	private Branch branch;
 	private Account primaryAccount;
 	private Account secondaryAccount;
+	private Customer customer;
+	private Customer other;
 
 	@Before
 	public void setUp() throws Exception {
@@ -31,10 +32,10 @@ public class TransferTest {
 		QName name = new QName("http://bank.via.dk/", "RemoteBranchService");
 		Service service = Service.create(wsdl, name);
 		branch = service.getPort(Branch.class);
-		Customer customer = branch.getCustomer("1234567890");
+		customer = branch.getCustomer("1234567890");
 		primaryAccount = branch.createAccount(customer, "DKK");
 		assertNotNull(primaryAccount);
-		Customer other = branch.getCustomer("1122334455");
+		other = branch.getCustomer("1122334455");
 		secondaryAccount = branch.createAccount(other, "EUR");
 	}
 	
@@ -52,11 +53,11 @@ public class TransferTest {
 		List<AbstractTransaction> primaryTransactionsBefore = branch.getTransactionsFor(primaryAccount);
 		List<AbstractTransaction> secondaryTransactionsBefore = branch.getTransactionsFor(secondaryAccount);
 		branch.execute(new DepositTransaction(startingAmount, primaryAccount));
-		primaryAccount = branch.getAccount(primaryAccount.getAccountNumber());
+		primaryAccount = branch.getAccount(customer, primaryAccount.getAccountNumber());
 		assertEquals(startingAmount, primaryAccount.getBalance());
 		branch.execute(new TransferTransaction(transferAmount, primaryAccount, secondaryAccount));
-		primaryAccount = branch.getAccount(primaryAccount.getAccountNumber());
-		secondaryAccount = branch.getAccount(secondaryAccount.getAccountNumber());
+		primaryAccount = branch.getAccount(customer, primaryAccount.getAccountNumber());
+		secondaryAccount = branch.getAccount(other, secondaryAccount.getAccountNumber());
 		assertEquals(remainingAmount, primaryAccount.getBalance());
 		assertEquals(branch.exchange(transferAmount, secondaryAccount.getSettledCurrency()), secondaryAccount.getBalance());
 		assertEquals(primaryTransactionsBefore.size() + 2, branch.getTransactionsFor(primaryAccount).size());

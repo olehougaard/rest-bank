@@ -12,6 +12,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
+import static java.util.stream.Collectors.toList;
+
 @Path("/customers/{cpr}/accounts/{accountNumber}/transactions")
 public class TransactionDAOService {
 	private static final String DEPOSIT = "Deposit";
@@ -44,7 +46,7 @@ public class TransactionDAOService {
 		public AbstractTransaction create(ResultSet rs) throws SQLException {
 			Money amount = new Money(rs.getBigDecimal("amount"), rs.getString("currency"));
 			String text = rs.getString("transaction_text");
-			Account primary = readAccount(rs, "primary_reg_number", "primary_account_number");
+			Account primary = readAccount(rs, "primary_reg_number", "primary_account_number", cpr);
 			AbstractTransaction transaction = null;
 			switch(rs.getString("transaction_type")) {
 			case DEPOSIT:
@@ -54,7 +56,7 @@ public class TransactionDAOService {
 				transaction = new WithdrawTransaction(amount, primary, text);
 				break;
 			case TRANSFER:
-				Account secondaryAccount = readAccount(rs, "secondary_reg_number", "secondary_account_number");
+				Account secondaryAccount = readAccount(rs, "secondary_reg_number", "secondary_account_number", "%");
 				transaction = new TransferTransaction(amount, primary, secondaryAccount, text);
 			default:
 			}
@@ -62,7 +64,7 @@ public class TransactionDAOService {
 			return transaction;
 		}
 
-		private Account readAccount(ResultSet rs, String regNumberAttr, String acctNumberAttr) throws SQLException {
+		private Account readAccount(ResultSet rs, String regNumberAttr, String acctNumberAttr, String cpr) throws SQLException {
 			return accounts.getAccount(new AccountNumber(rs.getInt(regNumberAttr), rs.getInt(acctNumberAttr)), cpr);
 		}
 	}
@@ -115,7 +117,7 @@ public class TransactionDAOService {
 		if (account == null) return Response.status(404).build();
 		Transaction transaction = transactionSpec.toTransaction(account);
 		transaction.accept(creator);
-		return Response.ok(getTransaction(cpr, accountString, creator.lastId)).build();
+		return Response.ok(TransactionSpecification.from(getTransaction(cpr, accountString, creator.lastId))).build();
 	}
 
 	@GET
@@ -125,7 +127,7 @@ public class TransactionDAOService {
 		AbstractTransaction transaction = getTransaction(cpr, accountString, transactionId);
 		if (transaction == null) return Response.status(404).build();
 		if (!transaction.includes(AccountNumber.fromString(accountString))) return Response.status(404).build();
-		return Response.status(200).entity(transaction).build();
+		return Response.status(200).entity(TransactionSpecification.from(transaction)).build();
 	}
 
 	private AbstractTransaction getTransaction(String cpr, String accountString, int transactionId) {
@@ -134,10 +136,13 @@ public class TransactionDAOService {
 
 	@GET
 	@Produces("application/json")
-	public List<AbstractTransaction> readTransactionsFor(@PathParam("cpr") String cpr, @PathParam("accountNumber") String accountString) {
+	public List<TransactionSpecification> readTransactionsFor(@PathParam("cpr") String cpr, @PathParam("accountNumber") String accountString) {
 		AccountNumber accountNumber = AccountNumber.fromString(accountString);
 		return helper.map(new TransactionMapper(cpr, accountString),
 				"SELECT * FROM Transaction WHERE (primary_reg_number = ? AND primary_account_number = ?) OR (secondary_reg_number = ? AND secondary_account_number = ?)",
-				accountNumber.getRegNumber(), accountNumber.getAccountNumber(),accountNumber.getRegNumber(), accountNumber.getAccountNumber());
+				accountNumber.getRegNumber(), accountNumber.getAccountNumber(),accountNumber.getRegNumber(), accountNumber.getAccountNumber())
+				.stream()
+				.map(TransactionSpecification::from)
+				.collect(toList());
 	}
 }

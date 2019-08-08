@@ -61,10 +61,6 @@ public class CustomerDAOService {
 	public Response readCustomer(@PathParam("cpr") String cpr) {
 		CustomerMapper mapper = new CustomerMapper();
 		Customer customer = helper.mapSingle(mapper, "SELECT * FROM Customer WHERE cpr = ?;", cpr);
-		Collection<Account> accounts = accountDAO.readAccountsFor(cpr);
-		for(Account account: accounts) {
-			customer.addAccount(account);
-		}
 		if (customer == null) {
 			return Response.status(404).build();
 		}

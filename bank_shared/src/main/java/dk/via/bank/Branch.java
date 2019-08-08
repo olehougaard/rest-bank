@@ -18,7 +18,7 @@ public interface Branch {
 	@WebMethod Customer createCustomer(String cpr, String name, String address);
 	@WebMethod Customer getCustomer(String cpr);
 	@WebMethod Account createAccount(Customer customer, String currency);
-	@WebMethod Account getAccount(AccountNumber accountNumber);
+	@WebMethod Account getAccount(Customer customer, AccountNumber accountNumber);
 	@WebMethod void cancelAccount(Account account);
 	@WebMethod Collection<Account> getAccounts(Customer customer);
 	@WebMethod void execute(AbstractTransaction t);
