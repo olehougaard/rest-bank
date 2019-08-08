@@ -1,6 +1,7 @@
 package dk.via.bank.model.transaction;
 
 import dk.via.bank.model.Account;
+import dk.via.bank.model.AccountNumber;
 import dk.via.bank.model.Money;
 
 public class TransferTransaction extends AbstractTransaction {
@@ -17,6 +18,11 @@ public class TransferTransaction extends AbstractTransaction {
 		super(amount, account, text);
 		this.withdrawTransaction = new WithdrawTransaction(amount, account, text);
 		this.depositTransaction = new DepositTransaction(amount, recipient, text);
+	}
+
+	@Override
+	public boolean includes(AccountNumber accountNumber) {
+		return depositTransaction.includes(accountNumber) || withdrawTransaction.includes(accountNumber);
 	}
 
 	public Money getAmount() {

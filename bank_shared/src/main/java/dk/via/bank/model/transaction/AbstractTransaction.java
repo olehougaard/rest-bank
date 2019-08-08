@@ -1,6 +1,7 @@
 package dk.via.bank.model.transaction;
 
 import dk.via.bank.model.Account;
+import dk.via.bank.model.AccountNumber;
 import dk.via.bank.model.Money;
 
 import javax.xml.bind.annotation.XmlSeeAlso;
@@ -23,6 +24,10 @@ public abstract class AbstractTransaction implements Transaction {
 
 	public Account getAccount() {
 		return account;
+	}
+
+	public boolean includes(AccountNumber accountNumber) {
+		return accountNumber.equals(account.getAccountNumber());
 	}
 	
 	@Override

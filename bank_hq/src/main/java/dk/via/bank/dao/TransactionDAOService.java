@@ -3,13 +3,17 @@ package dk.via.bank.dao;
 import dk.via.bank.model.Account;
 import dk.via.bank.model.AccountNumber;
 import dk.via.bank.model.Money;
+import dk.via.bank.model.parameters.TransactionSpecification;
 import dk.via.bank.model.transaction.*;
 
 import javax.jws.WebService;
+import javax.ws.rs.*;
+import javax.ws.rs.core.Response;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
+@Path("/customers/{cpr}/accounts/{accountNumber}/transactions")
 public class TransactionDAOService {
 	private static final String DEPOSIT = "Deposit";
 	private static final String TRANSFER = "Transfer";
@@ -17,7 +21,11 @@ public class TransactionDAOService {
 
 	private DatabaseHelper<AbstractTransaction> helper;
 	private AccountDAOService accounts;
-	
+
+	public TransactionDAOService() {
+		this(new AccountDAOService(), DatabaseHelper.JDBC_URL, DatabaseHelper.USERNAME, DatabaseHelper.PASSWORD);
+	}
+
 	public TransactionDAOService(AccountDAOService accounts, String jdbcURL, String username, String password) {
 		this.accounts = accounts;
 		this.helper = new DatabaseHelper<>(jdbcURL, username, password);
@@ -48,20 +56,28 @@ public class TransactionDAOService {
 	}
 	
 	private class TransactionCreator implements TransactionVisitor {
+		public int lastId;
+
 		@Override
 		public void visit(DepositTransaction transaction) {
 			Money amount = transaction.getAmount();
 			AccountNumber primaryAccount = transaction.getAccount().getAccountNumber();
-			helper.executeUpdate("INSERT INTO Transaction(amount, currency, transaction_type, transaction_text, primary_reg_number, primary_account_number) VALUES (?, ?, ?, ?, ?, ?)", 
-					amount.getAmount(), amount.getCurrency(), DEPOSIT, transaction.getText(), primaryAccount.getRegNumber(), primaryAccount.getAccountNumber());
+			List<Integer> keys = helper.executeUpdateWithGeneratedKeys(
+					"INSERT INTO Transaction(amount, currency, transaction_type, transaction_text, primary_reg_number, primary_account_number) VALUES (?, ?, ?, ?, ?, ?)",
+					amount.getAmount(), amount.getCurrency(), DEPOSIT, transaction.getText(),
+					primaryAccount.getRegNumber(), primaryAccount.getAccountNumber());
+			lastId = keys.get(0);
 		}
 
 		@Override
 		public void visit(WithdrawTransaction transaction) {
 			Money amount = transaction.getAmount();
 			AccountNumber primaryAccount = transaction.getAccount().getAccountNumber();
-			helper.executeUpdate("INSERT INTO Transaction(amount, currency, transaction_type, transaction_text, primary_reg_number, primary_account_number) VALUES (?, ?, ?, ?, ?, ?)", 
-					amount.getAmount(), amount.getCurrency(), WITHDRAWAL, transaction.getText(), primaryAccount.getRegNumber(), primaryAccount.getAccountNumber());
+			List<Integer> keys = helper.executeUpdateWithGeneratedKeys(
+					"INSERT INTO Transaction(amount, currency, transaction_type, transaction_text, primary_reg_number, primary_account_number) VALUES (?, ?, ?, ?, ?, ?)",
+					amount.getAmount(), amount.getCurrency(), WITHDRAWAL, transaction.getText(),
+					primaryAccount.getRegNumber(), primaryAccount.getAccountNumber());
+			lastId = keys.get(0);
 		}
 
 		@Override
@@ -69,32 +85,47 @@ public class TransactionDAOService {
 			Money amount = transaction.getAmount();
 			AccountNumber primaryAccount = transaction.getAccount().getAccountNumber();
 			AccountNumber secondaryAccount = transaction.getRecipient().getAccountNumber();
-			helper.executeUpdate("INSERT INTO Transaction(amount, currency, transaction_type, transaction_text, primary_reg_number, primary_account_number, secondary_reg_number, secondary_account_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", 
-					amount.getAmount(), amount.getCurrency(), TRANSFER, transaction.getText(), primaryAccount.getRegNumber(), primaryAccount.getAccountNumber(), secondaryAccount.getRegNumber(), secondaryAccount.getAccountNumber());
+			List<Integer> keys = helper.executeUpdateWithGeneratedKeys(
+					"INSERT INTO Transaction(amount, currency, transaction_type, transaction_text, primary_reg_number, primary_account_number, secondary_reg_number, secondary_account_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+					amount.getAmount(), amount.getCurrency(), TRANSFER, transaction.getText(),
+					primaryAccount.getRegNumber(), primaryAccount.getAccountNumber(),
+					secondaryAccount.getRegNumber(), secondaryAccount.getAccountNumber());
+			lastId = keys.get(0);
 		}
 	}
 	
 	private final TransactionCreator creator = new TransactionCreator();
-	
-	public void createTransactions(AbstractTransaction transaction) {
+
+	@POST
+	@Produces("application/json")
+	public Response createTransaction(@PathParam("accountNumber") String accountString, TransactionSpecification transactionSpec) {
+		Account account = accounts.getAccount(AccountNumber.fromString(accountString));
+		if (account == null) return Response.status(404).build();
+		Transaction transaction = transactionSpec.toTransaction(account);
 		transaction.accept(creator);
+		return Response.ok(getTransaction(creator.lastId)).build();
 	}
 
-	public AbstractTransaction readTransaction(int transactionId) {
+	@GET
+	@Path("/{id}")
+	@Produces("application/json")
+	public Response readTransaction(@PathParam("accountNumber") String accountString, @PathParam("id") int transactionId) {
+		AbstractTransaction transaction = getTransaction(transactionId);
+		if (transaction == null) return Response.status(404).build();
+		if (!transaction.includes(AccountNumber.fromString(accountString))) return Response.status(404).build();
+		return Response.status(200).entity(transaction).build();
+	}
+
+	private AbstractTransaction getTransaction(int transactionId) {
 		return helper.mapSingle(new TransactionMapper(), "SELECT * FROM Transaction WHERE transaction_id = ?", transactionId);
 	}
 
-	public List<AbstractTransaction> readTransactionsFor(Account account) {
-		AccountNumber accountNumber = account.getAccountNumber();
+	@GET
+	@Produces("application/json")
+	public List<AbstractTransaction> readTransactionsFor(@PathParam("accountNumber") String accountString) {
+		AccountNumber accountNumber = AccountNumber.fromString(accountString);
 		return helper.map(new TransactionMapper(), 
 				"SELECT * FROM Transaction WHERE (primary_reg_number = ? AND primary_account_number = ?) OR (secondary_reg_number = ? AND secondary_account_number = ?)",
 				accountNumber.getRegNumber(), accountNumber.getAccountNumber(),accountNumber.getRegNumber(), accountNumber.getAccountNumber());
-	}
-
-	public void deleteTransactionsFor(Account account) {
-		AccountNumber accountNumber = account.getAccountNumber();
-		helper.executeUpdate("DELETE FROM Transaction WHERE (primary_reg_number = ? AND primary_account_number = ?) OR (secondary_reg_number = ? AND secondary_account_number = ?)",
-				accountNumber.getRegNumber(), accountNumber.getAccountNumber(),accountNumber.getRegNumber(), accountNumber.getAccountNumber());
-		
 	}
 }
