@@ -32,7 +32,12 @@ public final class AccountNumber {
 	}
 	
 	public String toString() {
-		return String.format("%s %010d", regNumber, accountNumber);
+		return String.format("%04d%06d", regNumber, accountNumber);
+	}
+	public static AccountNumber fromString(String accountString) {
+		int regNumber = Integer.parseInt(accountString.substring(0, 4));
+		int accountNumber = Integer.parseInt(accountString.substring(4));
+		return new AccountNumber(regNumber, accountNumber);
 	}
 
 	// JAX-WS

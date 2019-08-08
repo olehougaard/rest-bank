@@ -12,9 +12,5 @@
         <module name="bank_hq" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel>
-      <module name="bank_branch" target="1.8" />
-      <module name="bank_client" target="1.8" />
-    </bytecodeTargetLevel>
   </component>
 </project>

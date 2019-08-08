@@ -56,10 +56,11 @@ public class AccountDAOService  {
 	@Path("{accountNumber}")
 	@Produces(MediaType.APPLICATION_JSON)
     public Account readAccount(@PathParam("accountNumber") String accountString) {
-		AccountNumber accountNumber = new AccountNumber(Integer.parseInt(accountString.substring(0, 4)), Integer.parseInt(accountString.substring(4)));
+		AccountNumber accountNumber = AccountNumber.fromString(accountString);
 		return helper.mapSingle(new AccountMapper(), "SELECT * FROM Account WHERE reg_number = ? AND account_number = ? AND active",
 				accountNumber.getRegNumber(), accountNumber.getAccountNumber());
 	}
+
 
     public void updateAccount(Account account) {
 		helper.executeUpdate("UPDATE ACCOUNT SET balance = ?, currency = ? WHERE reg_number = ? AND account_number = ? AND active", 
