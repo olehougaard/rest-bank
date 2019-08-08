@@ -43,7 +43,7 @@ public class TransactionDAOService {
 		}
 
 		private Account readAccount(ResultSet rs, String regNumberAttr, String acctNumberAttr) throws SQLException {
-			return accounts.readAccount(rs.getString(regNumberAttr) + rs.getString(acctNumberAttr));
+			return accounts.getAccount(new AccountNumber(rs.getInt(regNumberAttr), rs.getInt(acctNumberAttr)));
 		}
 	}
 	

@@ -2,11 +2,9 @@ package dk.via.bank.dao;
 
 import dk.via.bank.model.Account;
 import dk.via.bank.model.AccountNumber;
-import dk.via.bank.model.Customer;
 import dk.via.bank.model.Money;
 import dk.via.bank.model.parameters.AccountSpecification;
 
-import javax.jws.WebService;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -36,7 +34,7 @@ public class AccountDAOService  {
 		String currency = specification.getCurrency();
 		final List<Integer> keys = helper.executeUpdateWithGeneratedKeys("INSERT INTO Account(reg_number, customer, currency) VALUES (?, ?, ?)", 
 				regNumber, cpr, currency);
-		return readAccount(regNumber + "" + keys.get(0));
+		return getAccount(new AccountNumber(regNumber, keys.get(0)));
 	}
 	
 	public static class AccountMapper implements DataMapper<Account>{
@@ -59,11 +57,15 @@ public class AccountDAOService  {
 	@GET
 	@Path("{accountNumber}")
 	@Produces(MediaType.APPLICATION_JSON)
-    public Account readAccount(@PathParam("accountNumber") String accountString) {
-		return getAccount(AccountNumber.fromString(accountString));
+    public Response readAccount(@PathParam("accountNumber") String accountString) {
+		Account account = getAccount(AccountNumber.fromString(accountString));
+		if (account == null)
+			return Response.status(404).build();
+		else
+			return Response.status(200).entity(account).build();
 	}
 
-	private Account getAccount(AccountNumber accountNumber) {
+	Account getAccount(AccountNumber accountNumber) {
 		return helper.mapSingle(new AccountMapper(), "SELECT * FROM Account WHERE reg_number = ? AND account_number = ? AND active",
 				accountNumber.getRegNumber(), accountNumber.getAccountNumber());
 	}
@@ -72,13 +74,14 @@ public class AccountDAOService  {
 	@Path("{accountNumber}")
     public Response updateAccount(@PathParam("accountNumber") String accountString, Account account) {
 		AccountNumber accountNumber = AccountNumber.fromString(accountString);
-		if (getAccount(accountNumber) == null) {
-			return Response.status(403).build();
-		} else {
-			helper.executeUpdate("UPDATE ACCOUNT SET balance = ?, currency = ? WHERE reg_number = ? AND account_number = ? AND active",
-					account.getBalance().getAmount(), account.getSettledCurrency(), accountNumber.getRegNumber(), accountNumber.getAccountNumber());
-			return Response.status(200).build();
+		if (account.getAccountNumber() != null && !account.getAccountNumber().equals(accountNumber)) {
+			return Response.status(409).build();
 		}
+		if (getAccount(accountNumber) == null) return Response.status(403).build();
+		if (!account.getSettledCurrency().equals(account.getBalance().getCurrency())) return Response.status(400).build();
+		helper.executeUpdate("UPDATE ACCOUNT SET balance = ?, currency = ? WHERE reg_number = ? AND account_number = ? AND active",
+				account.getBalance().getAmount(), account.getSettledCurrency(), accountNumber.getRegNumber(), accountNumber.getAccountNumber());
+		return Response.status(200).build();
 	}
 
 	@DELETE

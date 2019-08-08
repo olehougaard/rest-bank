@@ -74,7 +74,9 @@ public class CustomerDAOService {
 	@PUT
 	@Path("{cpr}")
 	public Response updateCustomer(@PathParam("cpr") String cpr, Customer customer) {
-		if (helper.mapSingle(new CustomerMapper(), "SELECT * FROM Customer WHERE cpr = ?;", cpr) == null) {
+		if (customer.getCpr() != null && !customer.getCpr().isEmpty() && !customer.getCpr().equals(cpr)) {
+			return Response.status(409).build();
+		} else if (helper.mapSingle(new CustomerMapper(), "SELECT * FROM Customer WHERE cpr = ?;", cpr) == null) {
 			helper.executeUpdate("INSERT INTO Customer VALUES (?, ?, ?)", cpr, customer.getName(), customer.getAddress());
 			return Response.status(201).build();
 		} else {
