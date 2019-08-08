@@ -7,13 +7,11 @@ public class Customer {
 	private String cpr;
 	private String name;
 	private String address;
-	private ArrayList<Account> accounts;
 
 	public Customer(String cpr, String name, String address) {
 		this.cpr = cpr;
 		this.name = name;
 		this.address = address;
-		this.accounts = new ArrayList<>();
 	}
 
 	public String getCpr() {
@@ -32,16 +30,8 @@ public class Customer {
 		this.address = address;
 	}
 	
-	public void addAccount(Account account) {
-		accounts.add(account);
-	}
-
-	public Account[] getAccounts() {
-		return accounts.toArray(new Account[0]);
-	}
-
 	//JAX-WS
-	public Customer() {this.accounts = new ArrayList<>();}
+	public Customer() {}
 
 	public void setCpr(String cpr) {
 		this.cpr = cpr;
@@ -53,9 +43,5 @@ public class Customer {
 
 	public void setAddress(String address) {
 		this.address = address;
-	}
-
-	public void setAccounts(Account[] accounts) {
-		this.accounts = new ArrayList<>(Arrays.asList(accounts));
 	}
 }
